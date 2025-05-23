@@ -1,0 +1,495 @@
+// filepath: c:\Users\Wells\Desktop\UI Remake 2\umodzi-dev\frontEnd\src\components\DoctorContent.js
+import React, { useState, useRef, useEffect } from 'react';
+import { FiPlusCircle, FiUsers, FiX, FiPlus } from 'react-icons/fi';
+import TableHeader from '../components/TableHeader';
+import axios from 'axios';
+
+const MEDICATION_LIST = [
+  'Panado',
+  'Bufen',
+  'Aspirin',
+  'Magnesium',
+  'Ibuprofen',
+  'Paracetamol',
+  'Amoxicillin',
+  'Diclofenac',
+  'Metformin',
+  'Omeprazole'
+].sort();
+
+const MEDICATION_CATEGORIES = {
+  'Pain Relief': ['Panado', 'Aspirin', 'Ibuprofen', 'Diclofenac'],
+  'Antibiotics': ['Amoxicillin', 'Penicillin', 'Azithromycin'],
+  'Cardiovascular': ['Metoprolol', 'Amlodipine', 'Lisinopril'],
+  'Diabetes': ['Metformin', 'Insulin', 'Glibenclamide'],
+  'Gastrointestinal': ['Omeprazole', 'Ranitidine', 'Buscopan'],
+  'Supplements': ['Magnesium', 'Vitamin B', 'Calcium'],
+};
+
+const FREQUENCY_OPTIONS = [
+  'Once a day',
+  'Twice a day',
+  'Three times a day',
+  'Four times a day',
+  'Every 6 hours',
+  'Every 8 hours',
+  'Every 12 hours',
+  'Before meals',
+  'After meals',
+  'At bedtime'
+];
+
+const DoctorContent = ({ activeView, handleNavigation, externalPrescriptionModal = false, onCloseExternalPrescriptionModal }) => {  
+  const MOCK_STATISTICS = {
+    activePrescriptions: 48,
+    highRiskPatients: 12
+  };
+
+  const MOCK_PATIENTS = [
+    { 
+      id: 'PID-001',
+      name: 'John Banda',
+      age: 45,
+      lastVisit: '2025-03-15',
+      status: 'Completed',
+      prescriptionId: 'RX-2025-001'
+    },
+    { 
+      id: 'PID-002',
+      name: 'Kennedy Katayamoyo',
+      lastVisit: '2025-03-14',
+      status: 'Pending',
+      prescriptionId: 'RX-2025-002'
+    },
+    { 
+      id: 'PID-003',
+      name: 'Stacey Daza',
+      lastVisit: '2025-03-13',
+      status: 'Issued',
+      prescriptionId: 'RX-2025-003'
+    },
+    {
+      id: 'PID-004',
+      name: 'Alice Banda',
+      lastVisit: '2025-03-12',  
+      status: 'Revoked',
+      prescriptionId: 'RX-2025-004'
+    }
+  ];
+
+  const MOCK_RECENT_PRESCRIPTIONS = [
+    {
+      id: 'RX-2025-001',
+      patientName: 'John Banda',
+      patientId: 'PID-001',
+      medications: 'Paracetamol, Amoxicillin',
+      issuedDate: '2025-03-15',
+      status: 'Completed'
+    },
+    {
+      id: 'RX-2025-002',
+      patientName: 'Mary Phiri',
+      patientId: 'PID-005',
+      medications: 'Ibuprofen',
+      issuedDate: '2025-03-15',
+      status: 'Pending'
+    },
+    {
+      id: 'RX-2025-003',
+      patientName: 'James Mbewe',
+      patientId: 'PID-008',
+      medications: 'Aspirin, Magnesium',
+      issuedDate: '2025-03-14',
+      status: 'Completed'
+    },
+    {
+      id: 'RX-2025-004',
+      patientName: 'Grace Chirwa',
+      patientId: 'PID-012',
+      medications: 'Metformin',
+      issuedDate: '2025-03-14',
+      status: 'Pending'
+    }
+  ];
+
+  const [patients] = useState(MOCK_PATIENTS);
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);  const [verifiedPatient, setVerifiedPatient] = useState({
+    name: localStorage.getItem('patientName') || 'Patient Name',
+    id: localStorage.getItem('patientId') || 'PAT-ID'
+  });
+  const [prescriptionForm, setPrescriptionForm] = useState({
+    diagnosis: '',
+    medications: [{ name: '', dosage: '', frequency: '', notes: '' }]
+  });
+  const [successMessage, setSuccessMessage] = useState('');
+  const [selectedMeds, setSelectedMeds] = useState(new Set());
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [filteredPatients, setFilteredPatients] = useState(MOCK_PATIENTS);
+  const [recentPrescriptions, setRecentPrescriptions] = useState([]);
+  const [prescriptionSearchTerm, setPrescriptionSearchTerm] = useState('');
+  const [showMedicationModal, setShowMedicationModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [medicationIndex, setMedicationIndex] = useState(null);
+  const [searchMedication, setSearchMedication] = useState('');  
+  const [filteredRecentPrescriptions, setFilteredRecentPrescriptions] = useState([]);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [retrievedPatient, setRetrievedPatient] = useState(null);
+  const [error, setError] = useState(null);
+  const [isPatientVerified, setIsPatientVerified] = useState(false);  
+  const [selectedPrescription, setSelectedPrescription] = useState(null);
+  const [showPrescriptionDetailModal, setShowPrescriptionDetailModal] = useState(false);
+  const [drugSearchTerm, setDrugSearchTerm] = useState('');
+  const [drugSearchResults, setDrugSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [drugInteractions, setDrugInteractions] = useState([]);  
+  const [selectedDrugDetails, setSelectedDrugDetails] = useState(null);
+  const [loadingDrugDetails, setLoadingDrugDetails] = useState(false);
+  const [activePrescriptionsCount, setActivePrescriptionsCount] = useState(0);
+  const modalRef = useRef();
+  
+  // Check for verification when navigating to add-prescription view
+  useEffect(() => {
+    if (activeView === 'add-prescription' && !isPatientVerified && !showVerificationModal) {
+      console.log('Navigated directly to add-prescription without verification');
+      setShowVerificationModal(true);
+    }
+  }, [activeView, isPatientVerified, showVerificationModal]);
+  
+  // Handle external prescription modal trigger
+  useEffect(() => {
+    if (externalPrescriptionModal) {
+      // Check patient verification before showing prescription modal
+      if (!isPatientVerified) {
+        setShowVerificationModal(true);
+      } else {
+        setShowPrescriptionModal(true);
+      }
+      if (onCloseExternalPrescriptionModal) {
+        onCloseExternalPrescriptionModal();
+      }
+    }
+  }, [externalPrescriptionModal, onCloseExternalPrescriptionModal, isPatientVerified]);
+  
+  // Search for medications using OpenFDA API
+  const searchDrugs = async (query) => {
+    if (!query || query.length < 2) return;
+    
+    try {
+      setIsSearching(true);
+      console.log(`Searching for drug: "${query}"`);
+      
+      // First try the label endpoint with exact matching (original approach)
+      const url = 'https://api.fda.gov/drug/label.json';
+      const searchParams = {
+        search: `openfda.brand_name:"${query}"~3 OR openfda.generic_name:"${query}"~3 OR openfda.substance_name:"${query}"~3`,
+        limit: 10
+      };
+      
+      console.log('Search parameters:', searchParams);
+      let response = await axios.get(url, { params: searchParams });
+      
+      // If no results, try with a more relaxed search
+      if (!response.data.results || response.data.results.length === 0) {
+        console.log('No results with exact match, trying relaxed search');
+        response = await axios.get(url, {
+          params: {
+            search: `${query}`,
+            limit: 10
+          }
+        });
+      }
+      
+      // If still no results, try using the drug/ndc endpoint
+      if (!response.data.results || response.data.results.length === 0) {
+        console.log('No results with label endpoint, trying drug/ndc endpoint');
+        const ndcUrl = 'https://api.fda.gov/drug/ndc.json';
+        response = await axios.get(ndcUrl, {
+          params: {
+            search: `generic_name:${query} OR brand_name:${query}`,
+            limit: 10
+          }
+        });
+        
+        // Handle different response format from ndc endpoint
+        if (response.data && response.data.results) {
+          const drugs = response.data.results.map(result => {
+            return {
+              id: result.product_id || Math.random().toString(36).substring(2),
+              brandName: result.brand_name || 'Unknown Brand',
+              genericName: result.generic_name || 'Unknown Generic',
+              substances: [result.substance_name].filter(Boolean),
+              product_ndc: result.product_ndc || null,
+              route: result.route || null,
+              strength: result.dosage_form || null,
+              fullData: result
+            };
+          });
+          setDrugSearchResults(drugs);
+          setIsSearching(false);
+          return;
+        }
+      }
+      
+      // Process results from label endpoint
+      if (response.data && response.data.results) {
+        console.log(`Found ${response.data.results.length} results from OpenFDA API`);
+        const drugs = response.data.results.map(result => {
+          const brandNames = result.openfda?.brand_name || [];
+          const genericNames = result.openfda?.generic_name || [];
+          const substanceNames = result.openfda?.substance_name || [];
+          
+          return {
+            id: result.id || result.openfda?.application_number?.[0] || Math.random().toString(36).substring(2),
+            brandName: brandNames[0] || 'Unknown Brand',
+            genericName: genericNames[0] || 'Unknown Generic',
+            substances: substanceNames || [],
+            product_ndc: result.openfda?.product_ndc?.[0] || null,
+            route: result.openfda?.route?.[0] || null,
+            strength: result.openfda?.product_type?.[0] || null,
+            fullData: result
+          };
+        });
+        setDrugSearchResults(drugs);
+      } else {
+        console.log('No results found in response');
+        setDrugSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Error searching drugs:', error);
+      // Add more detailed error logging
+      if (error.response) {
+        console.error('Error response:', error.response.status, error.response.statusText);
+        console.error('Error data:', error.response.data);
+      }
+      setDrugSearchResults([]); // Clear results on error
+    } finally {
+      setIsSearching(false);
+    }
+  };
+  
+  // Handle selection of a drug from search results
+  const handleDrugSelect = (drug) => {
+    if (medicationIndex !== null) {
+      handleMedicationChange(medicationIndex, 'name', drug.brandName);
+      handleMedicationChange(medicationIndex, 'details', drug);
+      fetchDrugDetails(drug.brandName, drug);
+    }
+  };
+  
+  // Fetch detailed information about a selected drug
+  const fetchDrugDetails = async (drugName, drugData = null) => {
+    try {
+      setLoadingDrugDetails(true);
+      
+      // If we already have the drug data from search results
+      if (drugData) {
+        const details = {
+          ...drugData,
+          warnings: drugData.fullData.warnings || drugData.fullData.warnings_and_cautions || [],
+          contraindications: drugData.fullData.contraindications || [],
+          adverseReactions: drugData.fullData.adverse_reactions || [],
+          dosageAndAdmin: drugData.fullData.dosage_and_administration || []
+        };
+        setSelectedDrugDetails(details);
+      } else {
+        // Otherwise search for it
+        const url = 'https://api.fda.gov/drug/label.json';
+        const response = await axios.get(url, {
+          params: {
+            search: `openfda.brand_name:"${drugName}"~3 OR openfda.generic_name:"${drugName}"~3`,
+            limit: 1
+          }
+        });
+        
+        if (response.data && response.data.results && response.data.results.length > 0) {
+          const result = response.data.results[0];
+          const details = {
+            brandName: result.openfda?.brand_name?.[0] || drugName,
+            genericName: result.openfda?.generic_name?.[0] || 'Unknown Generic',
+            warnings: result.warnings || result.warnings_and_cautions || [],
+            contraindications: result.contraindications || [],
+            adverseReactions: result.adverse_reactions || [],
+            dosageAndAdmin: result.dosage_and_administration || [],
+            drugClass: result.openfda?.pharm_class_epc || []
+          };
+          setSelectedDrugDetails(details);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching drug details:', error);
+      if (error.response) {
+        console.error(error.response.status, error.response.statusText);
+      }
+    } finally {
+      setLoadingDrugDetails(false);
+    }
+  };
+  
+  const generateRandomString = (length) => {
+    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      const randomIndex = Math.floor(Math.random() * charset.length);
+      result += charset[randomIndex];
+    }
+    return result;
+  };
+  
+  useEffect(() => {
+    if (showVerificationModal) {
+      const nonce = generateRandomString(16);
+      const state = generateRandomString(16);
+
+      const renderButton = () => {
+        window.SignInWithEsignetButton?.init({
+          oidcConfig: {
+            acr_values: 'mosip:idp:acr:generated-code mosip:idp:acr:biometricr:static-code',
+            claims_locales: 'en',
+            client_id: process.env.REACT_APP_ESIGNET_CLIENT_ID,
+            redirect_uri: process.env.REACT_APP_ESIGNET_REDIRECT_URI_DOCTOR,
+            display: 'popup',
+            nonce: nonce,
+            prompt: 'consent',
+            scope: 'openid profile',
+            state: state,
+            ui_locales: 'en',
+            authorizeUri: process.env.REACT_APP_ESIGNET_AUTHORIZE_URI,
+          },
+          buttonConfig: {
+            labelText: 'Verify Patient with eSignet',
+            shape: 'rounded',
+            theme: 'filled_blue',
+            type: 'standard'
+          },
+          signInElement: document.getElementById('esignet-modal-button'),
+          onSuccess: (response) => {
+            console.log('Patient verification successful:', response);
+            const verifiedPatientData = {
+              id: response.sub || response.patientId,
+              name: response.name || 'Verified Patient',
+              birthday: response.birthdate || 'N/A'
+            };
+            setRetrievedPatient(verifiedPatientData);
+            setVerifiedPatient(verifiedPatientData); // Update verifiedPatient state
+            localStorage.setItem('patientName', verifiedPatientData.name);
+            localStorage.setItem('patientId', verifiedPatientData.id);
+            setIsPatientVerified(true); // Set verification flag
+            setShowVerificationModal(false);
+            
+            // Automatically show prescription form after successful verification
+            setShowPrescriptionModal(true);
+          },
+          onFailure: (error) => {
+            console.error('Patient verification failed:', error);
+            setError('Patient verification failed. Please try again.');
+          }
+        });
+      };
+
+      if (!window.SignInWithEsignetButton) {
+        const script = document.createElement('script');
+        script.src = process.env.REACT_APP_ESIGNET_SDK_URL;
+        script.onload = renderButton;
+        document.body.appendChild(script);
+      } else {
+        renderButton();
+      }
+    }
+  }, [showVerificationModal]);
+
+  // Rest of the component code...
+  
+  const handleAddPrescriptionClick = () => {
+    console.log('Add Prescription button clicked!');
+    
+    // Check if patient is verified before showing prescription modal
+    if (!retrievedPatient || !isPatientVerified) {
+      console.log('Patient verification required');
+      setShowVerificationModal(true);
+      setError(null);
+    } else {
+      // Patient is already verified, show prescription modal
+      console.log('Patient already verified, showing prescription modal');
+      console.log('Setting showPrescriptionModal to true');
+      setShowPrescriptionModal(true);
+      console.log('Current showPrescriptionModal value:', showPrescriptionModal);
+    }
+    
+    // Navigate to add-prescription view if not already there and handleNavigation is available
+    if (activeView !== 'add-prescription' && typeof handleNavigation === 'function') {
+      handleNavigation('add-prescription');
+    }
+  };
+
+  const renderVerificationModal = () => {
+    if (!showVerificationModal) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full m-4">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Verify Patient</h3>
+            <button
+              onClick={() => setShowVerificationModal(false)}
+              className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
+            >
+              <FiX className="h-6 w-6" />
+            </button>
+          </div>
+          <div className="px-6 py-8">
+            <div className="text-center space-y-4">
+              <p className="text-gray-600 dark:text-gray-400">
+                Please verify the patient's identity using eSignet to proceed
+              </p>
+              <div id="esignet-modal-button" className="flex justify-center"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  return (
+    <div className="relative min-h-full">
+      {error && (
+        <div className="bg-red-100 dark:bg-red-900/50 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-4 rounded mb-4">
+          {error}
+        </div>
+      )}
+      {activeView === 'dashboard' && renderDashboard()}
+      {activeView === 'patients' && renderPatients()}
+      {activeView === 'prescriptions' && renderPrescriptions()}
+
+      {/* Prescription button is now handled at the Dashboard level */}
+
+      {console.log('Rendering modal check - showPrescriptionModal:', showPrescriptionModal)}
+      {console.log('Patient verification status:', isPatientVerified)}
+      {showPrescriptionModal && isPatientVerified ? (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div ref={modalRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-[800px] max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">            <div className="border-b border-gray-200 dark:border-gray-700 px-8 py-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Create New Prescription</h3>
+                <button 
+                  onClick={() => setShowPrescriptionModal(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
+                >
+                  <FiX className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            
+            {/* Rest of the prescription modal content */}
+          </div>
+        </div>
+      ) : null}
+      
+      {showMedicationModal && renderMedicationModal()}
+      {showVerificationModal && renderVerificationModal()}
+    </div>
+  );
+};
+
+export default DoctorContent;

@@ -1,0 +1,693 @@
+// filepath: c:\Users\Wells\Desktop\UI Remake 2\umodzi-dev\frontEnd\src\components\PharmacistVerifyContent.js
+import React, { useState, useEffect } from 'react';
+import { FiSearch, FiAlertCircle, FiCheck, FiUserCheck, FiX, FiCheckCircle, FiQrCode, FiCreditCard } from 'react-icons/fi';
+import PrescriptionQRScanner from './PrescriptionQRScanner';
+import axios from 'axios';
+
+const PharmacistVerifyContent = () => {
+  // Main states
+  const [verificationMethod, setVerificationMethod] = useState('');
+  const [searchResult, setSearchResult] = useState(null);
+  const [error, setError] = useState('');
+  const [showPatientDetails, setShowPatientDetails] = useState(false);
+  
+  // Prescription verification states
+  const [scannedPrescription, setScannedPrescription] = useState(null);
+  const [verificationStatus, setVerificationStatus] = useState(null); // 'pending', 'verified', 'failed'
+  const [isDispensing, setIsDispensing] = useState(false);
+  const [dispensingSuccess, setDispensingSuccess] = useState(false);
+  
+  // Optional states for additional functionality
+  const [patientId, setPatientId] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Sample patient data for fallback/testing
+  const samplePatients = [
+    {
+      id: 'PID-001',
+      name: 'John Banda',
+      dateOfBirth: '1985-06-15',
+      gender: 'Male',
+      nationalId: 'NAT12345678',
+      address: '123 Lusaka Street, Lusaka',
+      phoneNumber: '+260 97 1234567',
+      email: 'john.banda@example.com',
+      allergies: ['Penicillin', 'Peanuts'],
+      bloodType: 'O+',
+      prescriptions: [
+        {
+          id: 'rx-001',
+          date: '2025-05-13T09:30:00',
+          medications: 'Panado, Bufen 400mg',
+          status: 'Pending',
+          doctor: 'Dr. Emily Morgan'
+        },
+        {
+          id: 'rx-003',
+          date: '2025-04-15T14:20:00',
+          medications: 'Amoxicillin 250mg',
+          status: 'Dispensed',
+          doctor: 'Dr. James Wilson'
+        }
+      ]
+    },
+    {
+      id: 'PID-005',
+      name: 'Mary Phiri',
+      dateOfBirth: '1990-03-22',
+      gender: 'Female',
+      nationalId: 'NAT87654321',
+      address: '45 Ndola Road, Ndola',
+      phoneNumber: '+260 96 7654321',
+      email: 'mary.phiri@example.com',
+      allergies: ['Sulfa drugs'],
+      bloodType: 'A+',
+      prescriptions: [
+        {
+          id: 'rx-002',
+          date: '2025-05-12T11:00:00',
+          medications: 'Amoxicillin 500mg',
+          status: 'Verified',
+          doctor: 'Dr. James Wilson'
+        }
+      ]
+    }
+  ];
+
+  /**
+   * Handle prescription QR scan result
+   * 
+   * @param {Object} data - Prescription data from QR scan
+   */
+  const handleQRScan = async (data) => {
+    // Reset states and set pending status
+    setScannedPrescription(data);
+    setVerificationStatus('pending');
+    setError('');
+    setSearchResult(null);
+    
+    try {
+      // Call backend API to verify prescription with blockchain
+      const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000'}/prescriptions/verify`, {
+        params: {
+          prescriptionId: data.prescriptionId || data.id,
+          patientId: data.patientId
+        },
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.data.success) {
+        setVerificationStatus('verified');
+        
+        // Fetch patient details based on the scanned prescription
+        try {
+          const patientResponse = await axios.get(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000'}/patient`, {
+            params: { patientId: data.patientId },
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          
+          if (patientResponse.data.success) {
+            setSearchResult(patientResponse.data.data);
+            setShowPatientDetails(true);
+          }
+        } catch (patientErr) {
+          console.error("Error fetching patient details:", patientErr);
+          // Even if patient fetch fails, we can still show the prescription verification
+        }
+      } else {
+        setVerificationStatus('failed');
+        setError(response.data.message || 'Verification failed');
+      }
+    } catch (err) {
+      setVerificationStatus('failed');
+      setError(err.response?.data?.message || 'Error verifying prescription with blockchain');
+    }
+  };
+
+  /**
+   * Handle dispensing medication after verification
+   */
+  const handleDispenseMedication = async () => {
+    // Verify that we have a prescription and it's verified before proceeding
+    // Fixed the verification check that had a logic issue
+    if (!scannedPrescription || verificationStatus !== 'verified') {
+      setError('Cannot dispense: Prescription must be verified first');
+      return;
+    }
+    
+    setIsDispensing(true);
+    setError('');
+    
+    try {
+      // Call backend API to mark prescription as dispensed - CORRECTED ENDPOINT
+      const response = await axios.post(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000'}/doctor/prescriptions/dispense`, {
+        prescriptionId: scannedPrescription.prescriptionId || scannedPrescription.id,
+        patientId: scannedPrescription.patientId,
+        pharmacistId: localStorage.getItem('pharmacistId') || localStorage.getItem('userId'),
+        dispensedAt: new Date().toISOString(),
+        // Add the note parameter which is required by the backend
+        note: "Medication dispensed as prescribed"
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      // ...existing code...
+    } catch (err) {
+      // Add fallback to the other endpoint if the first one fails
+      try {
+        console.log('First endpoint failed, trying alternative endpoint');
+        const fallbackResponse = await axios.post(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000'}/pharmacist/dispense`, {
+          prescriptionId: scannedPrescription.prescriptionId || scannedPrescription.id,
+          patientId: scannedPrescription.patientId,
+          pharmacistId: localStorage.getItem('pharmacistId') || localStorage.getItem('userId'),
+          dispensedAt: new Date().toISOString(),
+          comment: "Medication dispensed as prescribed" // Using comment field for this endpoint
+        }, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (fallbackResponse.data.success) {
+          setDispensingSuccess(true);
+          
+          // Update the status of the prescription
+          setScannedPrescription(prev => ({
+            ...prev,
+            status: 'Dispensed'
+          }));
+          
+          // If we have patient data with prescriptions, update that too
+          if (searchResult && searchResult.prescriptions) {
+            const updatedPrescriptions = searchResult.prescriptions.map(p => {
+              if (p.id === scannedPrescription.prescriptionId || p.id === scannedPrescription.id) {
+                return { ...p, status: 'Dispensed' };
+              }
+              return p;
+            });
+            
+            setSearchResult(prev => ({
+              ...prev,
+              prescriptions: updatedPrescriptions
+            }));
+          }
+          return; // Exit early on success
+        }
+      } catch (fallbackErr) {
+        console.error('Both endpoints failed:', fallbackErr);
+      }
+      
+      setError(err.response?.data?.message || 'Error dispensing medication');
+    } finally {
+      setIsDispensing(false);
+    }
+  };
+
+  /**
+   * Handle form submission for eSignet verification and demo mode
+   */
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setIsSearching(true);
+    setError('');
+    setScannedPrescription(null);
+    
+    // Simulate server response
+    setTimeout(() => {
+      if (verificationMethod === 'scan') {
+        // Simulate scan result
+        setSearchResult(samplePatients[0]);
+      } else if (verificationMethod === 'esignet') {
+        // Simulate eSignet verification
+        setSearchResult(samplePatients[1]);
+      }
+      
+      setIsSearching(false);
+    }, 1500);
+  };
+
+  /**
+   * Change verification method and reset states
+   */
+  const handleVerificationMethodChange = (method) => {
+    // Reset all states when switching methods
+    setVerificationMethod(method);
+    setPatientId('');
+    setSearchResult(null);
+    setError('');
+    setScannedPrescription(null);
+    setVerificationStatus(null);
+    setDispensingSuccess(false);
+  };
+
+  /**
+   * Show patient details modal
+   */
+  const handleShowPatientDetails = () => {
+    setShowPatientDetails(true);
+  };
+
+  /**
+   * Close patient details modal
+   */
+  const handleClosePatientDetails = () => {
+    setShowPatientDetails(false);
+  };
+  
+  return (
+    <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6">
+      {/* Header Section */}
+      <div className="mt-2">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Prescription Verification</h1>
+        <p className="text-gray-600 dark:text-gray-400">Verify and dispense patient prescriptions</p>
+      </div>
+      
+      {/* Back Button when in a verification method */}
+      {verificationMethod && !searchResult && !scannedPrescription && (
+        <button 
+          onClick={() => setVerificationMethod('')}
+          className="flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 mb-4"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
+          </svg>
+          Back to verification methods
+        </button>
+      )}
+      
+      {/* Unified Verification Method Selection - only show if no active verification or results */}
+      {!verificationMethod && !searchResult && !scannedPrescription && (
+        <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+            Select Verification Method
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <button 
+              onClick={() => handleVerificationMethodChange('scan')}
+              className="flex flex-col items-center justify-center p-6 border-2 border-gray-200 dark:border-gray-700 rounded-xl transition-all hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-700"
+            >
+              <div className="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-full mb-4">
+                <FiQrCode className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">QR Code Scan</h3>
+              <p className="text-gray-500 dark:text-gray-400 text-center">
+                Scan prescription QR code to verify and dispense medication
+              </p>
+            </button>
+            
+            <button 
+              onClick={() => handleVerificationMethodChange('esignet')}
+              className="flex flex-col items-center justify-center p-6 border-2 border-gray-200 dark:border-gray-700 rounded-xl transition-all hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-700"
+            >
+              <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-full mb-4">
+                <FiCreditCard className="h-8 w-8 text-green-600 dark:text-green-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">eSignet Verification</h3>
+              <p className="text-gray-500 dark:text-gray-400 text-center">
+                Verify patient using their eSignet ID card
+              </p>
+            </button>
+          </div>
+        </div>
+      )}
+        
+      {/* QR Scanner Section */}
+      {verificationMethod === 'scan' && !searchResult && !scannedPrescription && (
+        <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg mb-8">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Scan Prescription QR Code
+              </h2>
+              <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
+                Pharmacist Mode
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Scan a prescription QR code to verify against blockchain and dispense medication
+            </p>
+            <div className="mb-4">
+              <PrescriptionQRScanner onScan={handleQRScan} isPharmacist={true} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* eSignet Verification Section */}
+      {verificationMethod === 'esignet' && !searchResult && !scannedPrescription && (
+        <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            eSignet Verification
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            Verify patient identity using their eSignet ID card for secure access to prescriptions
+          </p>
+          
+          <div className="text-center py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+            <FiCreditCard className="mx-auto h-12 w-12 text-gray-400" />
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Request patient to scan their eSignet ID</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">or use the simulation button below for testing</p>
+            
+            <button
+              onClick={handleSubmit}
+              className="mt-6 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              <FiCheck className="mr-2 -ml-1 h-4 w-4" />
+              Simulate eSignet Verification
+            </button>
+          </div>
+          
+          {isSearching && (
+            <div className="mt-4 flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Verification Status Display */}
+      {scannedPrescription && (
+        <div className={`p-6 mb-6 rounded-lg border ${
+          verificationStatus === 'verified' ? 'bg-green-50 border-green-500 dark:bg-green-900/20 dark:border-green-700' :
+          verificationStatus === 'failed' ? 'bg-red-50 border-red-500 dark:bg-red-900/20 dark:border-red-700' :
+          'bg-yellow-50 border-yellow-500 dark:bg-yellow-900/20 dark:border-yellow-700'
+        }`}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">
+              {verificationStatus === 'verified' ? 'Prescription Verified' :
+               verificationStatus === 'failed' ? 'Verification Failed' : 'Verifying...'}
+            </h3>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              verificationStatus === 'verified' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+              verificationStatus === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
+              'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+            }`}>
+              {verificationStatus === 'verified' ? 'Valid' : 
+               verificationStatus === 'failed' ? 'Invalid' : 'Checking'}
+            </span>
+          </div>
+          
+          {verificationStatus === 'pending' && (
+            <div className="flex justify-center my-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          )}
+          
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-700 dark:text-red-300 text-sm">
+              {error}
+            </div>
+          )}
+          
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Prescription ID</p>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {scannedPrescription.prescriptionId || scannedPrescription.id || 'N/A'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Patient ID</p>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {scannedPrescription.patientId || 'N/A'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Medication</p>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {scannedPrescription.medication || scannedPrescription.medicationName || scannedPrescription.medications || 'N/A'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Dosage</p>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {scannedPrescription.dosage || 'N/A'}
+              </p>
+            </div>
+          </div>
+          
+          {verificationStatus === 'verified' && (
+            <div className="mt-6 flex justify-between items-center">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {dispensingSuccess ? 
+                  'Medication has been dispensed successfully.' : 
+                  'Prescription is valid and can be dispensed.'}
+              </p>
+              
+              {!dispensingSuccess && (
+                <button
+                  onClick={handleDispenseMedication}
+                  disabled={isDispensing}
+                  className={`px-4 py-2 rounded-lg text-white ${
+                    isDispensing ? 'bg-gray-500' : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                >
+                  {isDispensing ? (
+                    <span className="flex items-center">
+                      <span className="mr-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"></span>
+                      Processing...
+                    </span>
+                  ) : (
+                    <span className="flex items-center">
+                      <FiCheckCircle className="mr-2" />
+                      Dispense Medication
+                    </span>
+                  )}
+                </button>
+              )}
+              
+              {dispensingSuccess && (
+                <div className="px-4 py-2 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 rounded-lg flex items-center">
+                  <FiCheck className="mr-2" />
+                  Dispensed
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Results Section */}
+      {searchResult && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Patient Found</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Verify the patient details below</p>
+            </div>
+            <div className="px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300 text-xs font-medium flex items-center">
+              <FiCheck className="mr-1 h-3 w-3" />
+              Verified
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Patient Information</h3>
+              <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 space-y-3">
+                <div>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Name</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{searchResult.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Patient ID</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{searchResult.id}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Date of Birth</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {new Date(searchResult.dateOfBirth).toLocaleDateString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Gender</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{searchResult.gender}</p>
+                </div>
+                <div className="pt-2">
+                  <button
+                    onClick={handleShowPatientDetails}
+                    className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    View Complete Profile
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Active Prescriptions ({searchResult.prescriptions.filter(p => p.status === 'Pending' || p.status === 'Verified').length})</h3>
+              {searchResult.prescriptions.filter(p => p.status === 'Pending' || p.status === 'Verified').length > 0 ? (
+                <div className="space-y-3">
+                  {searchResult.prescriptions
+                    .filter(p => p.status === 'Pending' || p.status === 'Verified')
+                    .map(prescription => (
+                      <div key={prescription.id} className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{prescription.medications}</p>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            prescription.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                            'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                          }`}>
+                            {prescription.status}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                          <p>ID: {prescription.id}</p>
+                          <p>{new Date(prescription.date).toLocaleDateString()}</p>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Prescribed by: {prescription.doctor}</p>
+                        
+                        <div className="mt-4 flex space-x-2">
+                          <button className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md flex-1">
+                            Process Prescription
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  }
+                </div>
+              ) : (
+                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 text-center">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No active prescriptions</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Patient Details Modal */}
+      {showPatientDetails && searchResult && (
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm"
+            onClick={handleClosePatientDetails}
+          ></div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full z-10 overflow-hidden transform transition-all">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-white">Patient Profile</h3>
+              <button 
+                onClick={handleClosePatientDetails}
+                className="text-gray-400 hover:text-gray-500 focus:outline-none"
+              >
+                <FiX className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6 max-h-[80vh] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Personal Information</h4>
+                    <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 space-y-3">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Full Name</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{searchResult.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Patient ID</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{searchResult.id}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Date of Birth</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                          {new Date(searchResult.dateOfBirth).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Gender</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{searchResult.gender}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">National ID</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{searchResult.nationalId}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Contact Information</h4>
+                    <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 space-y-3">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Address</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{searchResult.address}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Phone</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{searchResult.phoneNumber}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Email</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{searchResult.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Medical Information</h4>
+                    <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 space-y-3">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Blood Type</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{searchResult.bloodType}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Allergies</p>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {searchResult.allergies.map((allergy, index) => (
+                            <span 
+                              key={index} 
+                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                            >
+                              {allergy}
+                            </span>
+                          ))}
+                          {searchResult.allergies.length === 0 && (
+                            <span className="text-sm text-gray-500 dark:text-gray-400">No known allergies</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Prescription History</h4>
+                    <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 space-y-3 max-h-60 overflow-y-auto">
+                      {searchResult.prescriptions.map((prescription) => (
+                        <div key={prescription.id} className="border-b border-gray-200 dark:border-gray-600 pb-2 last:border-b-0 last:pb-0">
+                          <div className="flex justify-between items-start">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">{prescription.medications}</p>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              prescription.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' : 
+                              prescription.status === 'Dispensed' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 
+                              prescription.status === 'Verified' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+                              'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                            }`}>
+                              {prescription.status}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            <p>ID: {prescription.id} | {new Date(prescription.date).toLocaleDateString()}</p>
+                            <p>Dr. {prescription.doctor}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PharmacistVerifyContent;

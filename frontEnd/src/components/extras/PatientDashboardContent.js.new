@@ -1,0 +1,393 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { FiPackage, FiCheckSquare, FiTrendingUp, FiX, FiInfo, FiUserCheck, FiAlertCircle, FiCalendar } from 'react-icons/fi';
+import MetricsCard from './MetricsCard';
+import AppointmentsTable from './AppointmentsTable';
+import PatientQRCode from './PatientQRCode';
+
+// Skeleton loader for metrics cards
+const MetricsCardSkeleton = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4 animate-pulse">
+    <div className="flex items-center mb-3">
+      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+      <div className="ml-3 h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+    </div>
+    <div className="h-7 w-16 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+    <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded"></div>
+  </div>
+);
+
+// Prescription modal component extracted for better organization
+const PrescriptionModal = ({ prescription, onClose }) => {
+  if (!prescription) return null;
+  
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      ></div>
+      <div 
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full z-10 overflow-hidden transform transition-all"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-headline"
+      >
+        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 id="modal-headline" className="font-semibold text-lg text-gray-900 dark:text-white">Prescription Details</h3>
+          <button 
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Close"
+          >
+            <FiX className="h-6 w-6" />
+          </button>
+        </div>
+        <div className="px-6 py-4">
+          <div className="mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
+            <div className="flex justify-between mb-2">
+              <div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Medication</p>
+                <p className="text-base font-semibold text-gray-900 dark:text-white">{prescription.medications}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</p>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium ${
+                  prescription.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                  prescription.status === 'Completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                  prescription.status === 'Revoked' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' : 
+                  prescription.status === 'Active' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+                  'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                }`}>
+                  {prescription.status}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-between mt-4">
+              <div className="mb-2 mr-4">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Prescribed By</p>
+                <p className="text-sm text-gray-900 dark:text-white">{prescription.doctorName}</p>
+              </div>
+              <div className="mb-2">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Prescribed On</p>
+                <p className="text-sm text-gray-900 dark:text-white">
+                  {new Date(prescription.date).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+            {prescription.expiryDate && (
+              <div className="mt-4 flex items-center">
+                <FiCalendar className="text-gray-400 mr-2" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Expires On</p>
+                  <p className="text-sm text-gray-900 dark:text-white">
+                    {new Date(prescription.expiryDate).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {prescription.dosage && (
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Dosage</h4>
+              <div className="bg-gray-50 dark:bg-gray-700/30 p-3 rounded-md">
+                <p className="text-base text-gray-800 dark:text-gray-200">{prescription.dosage}</p>
+              </div>
+            </div>
+          )}
+          
+          {prescription.instructions && (
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Instructions</h4>
+              <div className="bg-gray-50 dark:bg-gray-700/30 p-3 rounded-md">
+                <p className="text-base text-gray-800 dark:text-gray-200">{prescription.instructions}</p>
+              </div>
+            </div>
+          )}
+          
+          {prescription.dispensingPharmacist && (
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Dispensing Information</h4>
+              <div className="bg-gray-50 dark:bg-gray-700/30 p-3 rounded-md">
+                <p className="text-sm text-gray-800 dark:text-gray-200">
+                  <span className="font-medium">Pharmacist ID:</span> {prescription.dispensingPharmacist}
+                </p>
+                {prescription.dispensingTimestamp && (
+                  <p className="text-sm text-gray-800 dark:text-gray-200 mt-1">
+                    <span className="font-medium">Dispensed on:</span> {new Date(prescription.dispensingTimestamp).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {prescription.txID && (
+            <div className="mt-4 border-t border-gray-100 dark:border-gray-700 pt-4">
+              <div className="flex items-center mb-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Transaction ID</p>
+                <div className="ml-2 group relative">
+                  <FiInfo className="h-4 w-4 text-gray-400 cursor-help" />
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                    This is the blockchain transaction ID that verifies this prescription's authenticity
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-700 dark:text-gray-300 font-mono break-all mt-1">{prescription.txID}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PatientDashboardContent = ({ patientInfo }) => {
+  const [selectedPrescription, setSelectedPrescription] = useState(null);
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Use patientInfo prop if available, otherwise fallback to localStorage
+  const patientId = patientInfo?.id || localStorage.getItem('patientId') || 'PID-001';
+  const patientName = patientInfo?.name || localStorage.getItem('patientName') || 'John Banda';
+  
+  // Simulate data loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 800);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
+  const handlePrescriptionClick = useCallback((prescription) => {
+    setSelectedPrescription(prescription);
+    setShowPrescriptionModal(true);
+  }, []);
+
+  const closePrescriptionModal = useCallback(() => {
+    setShowPrescriptionModal(false);
+    setSelectedPrescription(null);
+  }, []);
+
+  // Sample metrics data with patient-centered focus - memoized to prevent unnecessary re-renders
+  const metrics = useMemo(() => [
+    {
+      id: 'active-prescriptions',
+      icon: <FiPackage />,
+      title: 'Active Prescriptions',
+      value: '3',
+      increase: '1',
+      subtitle: 'Currently valid medications',
+      iconColor: 'text-blue-600 dark:text-blue-400',
+      bgColor: 'bg-blue-50 dark:bg-blue-900/20'
+    },
+    {
+      id: 'completed-prescriptions',
+      icon: <FiCheckSquare />,
+      title: 'Completed Medications',
+      value: '12',
+      increase: '5',
+      subtitle: 'Last month: 7',
+      iconColor: 'text-green-600 dark:text-green-400',
+      bgColor: 'bg-green-50 dark:bg-green-900/20'
+    },
+    {
+      id: 'upcoming-refills',
+      icon: <FiPackage />,
+      title: 'Upcoming Refills',
+      value: '2',
+      increase: '0',
+      subtitle: 'Due in next 7 days',
+      iconColor: 'text-amber-600 dark:text-amber-400',
+      bgColor: 'bg-amber-50 dark:bg-amber-900/20'
+    },
+    {
+      id: 'medication-adherence',
+      icon: <FiTrendingUp />,
+      title: 'Medication Adherence',
+      value: '92%',
+      increase: '4',
+      subtitle: 'Last month: 88%',
+      iconColor: 'text-purple-600 dark:text-purple-400',
+      bgColor: 'bg-purple-50 dark:bg-purple-900/20'
+    }
+  ], []);
+
+  // Sample prescription data for patients - memoized to prevent unnecessary re-renders
+  const prescriptions = useMemo(() => [
+    {
+      id: 'rx-001',
+      patientName: patientName,
+      patientId: patientId,
+      date: '2025-04-20T09:30:00',
+      medications: 'Panado, Bufen 400mg',
+      status: 'Active',
+      dosage: '1 tablet',
+      instructions: 'Take twice daily after meals',
+      txID: 'f2f9255cacfc10d5c43e04ab981457e74bc2794b66b87af7722f0cdcf8918dcc',
+      expiryDate: '2025-05-20',
+      dispensingPharmacist: 'Pharm-123',
+      dispensingTimestamp: '2025-04-21T10:35:00Z',
+      doctorName: 'Dr. Emily Morgan'
+    },    
+    {
+      id: 'rx-002',
+      patientName: patientName,
+      patientId: patientId,
+      date: '2025-04-15T11:00:00',
+      medications: 'Amoxicillin 500mg',
+      status: 'Active',
+      dosage: '500mg',
+      instructions: 'Take three times daily for 10 days',
+      txID: '32f9255cacfc10d5c43e04ab981457e74bc2794b66b87af7722f0cdcf8918e33',
+      expiryDate: '2025-04-25',
+      dispensingPharmacist: 'Pharm-456',
+      dispensingTimestamp: '2025-04-15T14:20:00Z',
+      doctorName: 'Dr. James Wilson'
+    },
+    {
+      id: 'rx-003',
+      patientName: patientName,
+      patientId: patientId,
+      date: '2025-04-10T10:15:00',
+      medications: 'Lisinopril 10mg',
+      status: 'Active',
+      dosage: '10mg',
+      instructions: 'Take once daily in the morning',
+      txID: 'ad9c4d9f3356ff9dc5785c5c49bf938aa142c39bbd29c3303990a0555ed817c7',
+      expiryDate: '2025-05-10',
+      dispensingPharmacist: 'Pharm-789',
+      dispensingTimestamp: '2025-04-10T16:45:00Z',
+      doctorName: 'Dr. Sarah Johnson'
+    },
+    {
+      id: 'rx-004',
+      patientName: patientName,
+      patientId: patientId,
+      date: '2025-03-21T14:30:00',
+      medications: 'Metformin 500mg',
+      status: 'Completed',
+      dosage: '500mg',
+      instructions: 'Take with meals three times daily',
+      txID: 'b5f9255cacfc10d5c43e04ab981457e74bc2794b66b87af7722f0cdcf8918daa',
+      expiryDate: '2025-04-21',
+      dispensingPharmacist: 'Pharm-123',
+      dispensingTimestamp: '2025-03-21T18:30:00Z',
+      doctorName: 'Dr. Emily Morgan'
+    },    
+    {
+      id: 'rx-005',
+      patientName: patientName,
+      patientId: patientId,
+      date: '2025-03-15T09:00:00',
+      medications: 'Amoxicillin 250mg, Paracetamol 500mg',
+      status: 'Completed',
+      dosage: 'Amoxicillin 250mg - 1 tablet, Paracetamol 500mg - 1-2 tablets',
+      instructions: 'Amoxicillin: three times daily, Paracetamol: as needed for pain',
+      txID: 'c3f9255cacfc10d5c43e04ab981457e74bc2794b66b87af7722f0cdcf8918fff',
+      expiryDate: '2025-03-25',
+      dispensingPharmacist: 'Pharm-456',
+      dispensingTimestamp: '2025-03-15T11:20:00Z',
+      doctorName: 'Dr. James Wilson'
+    }
+  ], [patientId, patientName]);
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6">
+      {/* Header Section */}
+      <div className="mt-2">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Patient Dashboard</h1>
+        <p className="text-gray-600 dark:text-gray-400">Welcome back! Here's an overview of your medical information</p>
+      </div>
+      
+      {/* Patient ID & QR Code */}
+      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="flex flex-col md:flex-row justify-between items-center">
+          <div className="mb-4 md:mb-0">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
+              <FiUserCheck className="mr-2 h-5 w-5 text-blue-500" />
+              Patient Identity
+            </h2>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              Show this QR code to your pharmacist for quick verification
+            </p>
+            <div className="mt-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Patient ID: <span className="font-medium text-gray-900 dark:text-white">{patientId}</span></p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Name: <span className="font-medium text-gray-900 dark:text-white">{patientName}</span></p>
+            </div>
+            <button
+              onClick={() => setShowQRCode(!showQRCode)}
+              className="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              aria-expanded={showQRCode}
+            >
+              {showQRCode ? 'Hide QR Code' : 'Show QR Code'}
+            </button>
+          </div>
+          
+          {showQRCode && (
+            <div className="flex-shrink-0 transition-all duration-300 ease-in-out">
+              <PatientQRCode patientId={patientId} patientName={patientName} />
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Metrics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {isLoading ? (
+          // Show skeleton loaders while loading
+          Array(4).fill(0).map((_, index) => (
+            <MetricsCardSkeleton key={index} />
+          ))
+        ) : (
+          // Show actual metrics when loaded
+          metrics.map((metric) => (
+            <MetricsCard 
+              key={metric.id}
+              icon={metric.icon}
+              title={metric.title}
+              value={metric.value}
+              increase={metric.increase}
+              subtitle={metric.subtitle}
+              iconColor={metric.iconColor}
+              bgColor={metric.bgColor}
+            />
+          ))
+        )}
+      </div>
+      
+      {/* Recent Prescriptions Table */}
+      <div>
+        {isLoading ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
+            <div className="h-6 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+            <div className="h-4 w-64 bg-gray-200 dark:bg-gray-700 rounded mb-6"></div>
+            <div className="space-y-3">
+              {Array(3).fill(0).map((_, index) => (
+                <div key={index} className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <AppointmentsTable 
+            appointments={prescriptions} 
+            isForPrescriptions={true}
+            onRowClick={handlePrescriptionClick}
+          />
+        )}
+      </div>
+      
+      {/* Prescription Detail Modal - Extracted to a separate component */}
+      {showPrescriptionModal && selectedPrescription && (
+        <PrescriptionModal 
+          prescription={selectedPrescription} 
+          onClose={closePrescriptionModal} 
+        />
+      )}
+    </div>
+  );
+};
+
+export default React.memo(PatientDashboardContent);
