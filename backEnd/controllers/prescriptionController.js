@@ -93,16 +93,12 @@ class PrescriptionController {
       // The args should be a single string in an array, not JSON object itself
       requestData.append('args', JSON.stringify(assetObject));
 
-      console.log(`Creating prescription for patient ${patientId}:`, JSON.stringify(assetObject));
-
       // Send to blockchain
       const blockchainResponse = await axios.post(
         `${process.env.BLOCKCHAIN_API_URL || 'http://localhost:45000'}/invoke`, 
         requestData,
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
-
-      console.log(`Blockchain response for create:`, JSON.stringify(blockchainResponse.data));
 
       // Return formatted response immediately
       res.status(201).json({
@@ -140,10 +136,10 @@ class PrescriptionController {
           maxDelay: 30000      // Max 30 seconds between retries
         });
         
-        console.log(`✅ Verified prescription creation for patient ${patientId}`);
+       
       } catch (verifyError) {
         // This won't affect the client response since we're already responded
-        console.error(`⚠️ Could not verify prescription creation: ${verifyError.message}`);
+        console.error(` Could not verify prescription creation: ${verifyError.message}`);
       }
     } catch (error) {
       console.error('Error:', error.response?.data || error.message);
@@ -182,7 +178,7 @@ class PrescriptionController {
       }
 
       let rawData = response.data;
-      console.log("processing query", response.data);
+      console.log("processing query");
       
       // Check for "does not exist" error in the raw data
       if (typeof rawData === "string" && rawData.includes("does not exist")) {
@@ -405,9 +401,7 @@ class PrescriptionController {
         note: note || "N/A"
       };
       
-      // Log the dispensation data for debugging
-      console.log(`Dispensation data sent to blockchain: ${JSON.stringify(dispensationData)}`);
-      
+    
       // The args should be the JSON string
       requestData.append('args', JSON.stringify(dispensationData));
 
@@ -417,9 +411,6 @@ class PrescriptionController {
         requestData,
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
-
-      // Log the raw blockchain response for debugging
-      console.log(`Raw blockchain response from dispensation: ${JSON.stringify(blockchainResponse.data)}`);
 
       // Check if the response contains an error
       if (typeof blockchainResponse.data === 'string' && blockchainResponse.data.includes('Error:')) {

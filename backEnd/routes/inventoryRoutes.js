@@ -6,12 +6,6 @@ const { authenticateToken, checkRole } = require('../utils/auth');
 // Apply authentication middleware to all inventory routes
 router.use(authenticateToken);
 
-// API Routes for Inventory Management
-
-/**
- * INVENTORY MANAGEMENT
- */
-
 // Get inventory dashboard statistics
 router.get('/stats', checkRole(['admin', 'pharmacist']), InventoryController.getInventoryStats);
 
@@ -33,9 +27,6 @@ router.get('/:id/transactions', checkRole(['admin', 'pharmacist']), InventoryCon
 // Record inventory transaction (stock in/out)
 router.post('/transaction', checkRole(['admin', 'pharmacist']), InventoryController.recordTransaction);
 
-/**
- * SUPPLIER MANAGEMENT
- */
 
 // Get all suppliers
 router.get('/suppliers', checkRole(['admin', 'pharmacist']), InventoryController.getAllSuppliers);

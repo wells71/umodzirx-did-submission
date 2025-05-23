@@ -66,14 +66,11 @@ const login = async (req, res) => {
   try {
     if (!code) throw new Error('Authorization code required');
 
-    console.log("[AUTH] Received authorization code:", code);
-
     const clientAssertion = await createClientAssertion();
-    console.log("[AUTH] Created client assertion");
+
 
     // Exchange the code for a token
-    console.log("[AUTH] Exchanging code for token with redirect_uri:", process.env.REDIRECT_URI);
-    const tokenResponse = await axios.post(
+       const tokenResponse = await axios.post(
       `${process.env.ISSUER}${process.env.TOKEN_PATH}`,
       new URLSearchParams({
         grant_type: 'authorization_code',
@@ -95,7 +92,6 @@ const login = async (req, res) => {
     );
     
     const userInfo = decodeJWT(userInfoResponse.data).payload;
-    console.log("[AUTH] Retrieved user info:", userInfo);
 
     // Determine user roles
     let role = 'patient';
@@ -145,7 +141,6 @@ const exchangeCode = async (req, res) => {
     // Check if code exists and matches the stored temporary code
     if (!code || code !== temporaryInfo.code) {
       console.error("[AUTH] Invalid code received:", code);
-      console.error("[AUTH] Expected code:", temporaryInfo.code);
       throw new Error('Invalid or expired authorization code');
     }
     
@@ -156,7 +151,7 @@ const exchangeCode = async (req, res) => {
       throw new Error('Invalid role selection');
     }
 
-    console.log("[AUTH] Creating token for user:", temporaryInfo.user?.id);
+    console.log("[AUTH] Creating token for user:");
     
     // Create JWT token
     const token = jwt.sign(
@@ -168,8 +163,6 @@ const exchangeCode = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '5m' }
     );
-
-    console.log("[AUTH] Token created successfully");
 
     return res.json({
       success: true,
