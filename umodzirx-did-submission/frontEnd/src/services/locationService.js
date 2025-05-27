@@ -15,10 +15,7 @@ const locationService = {
    */
   async getNearbyLocations(options = {}) {
     try {
-      // In a real implementation, this would call your backend API
-      // For now, we'll return mock data
-      
-      // Uncomment this when your API is ready:
+      // API:
       // const response = await axios.get('http://localhost:5000/healthcare-locations', {
       //   params: {
       //     lat: options.latitude,
@@ -47,19 +44,9 @@ const locationService = {
     }
   },
   
-  /**
-   * Get details for a specific healthcare location
-   * 
-   * @param {string} id - Location ID
-   * @param {string} type - Location type ('pharmacy' or 'hospital')
-   * @returns {Promise<Object>} - Promise resolving to location details
-   */
   async getLocationDetails(id, type) {
     try {
-      // In a real implementation, this would call your backend API
-      // For now, we'll return mock data
-      
-      // Uncomment this when your API is ready:
+      // API:
       // const response = await axios.get(`http://localhost:5000/healthcare-locations/${type}/${id}`);
       // return response.data;
       

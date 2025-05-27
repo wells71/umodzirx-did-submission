@@ -8,7 +8,8 @@ import {
   FiCheckSquare, 
   FiPackage,
   FiSettings,
-  FiUserPlus
+  FiUserPlus,
+  FiMapPin
 } from 'react-icons/fi';
 
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -26,6 +27,7 @@ import PharmacistAnalyticsContent from '../components/dashboard/pharmacist/Pharm
 import PatientDashboardContent from '../components/dashboard/patient/PatientDashboardContent';
 import PatientPrescriptionsContent from '../components/dashboard/patient/PatientPrescriptionsContent';
 import PatientAnalyticsContent from '../components/dashboard/patient/PatientAnalyticsContent';
+import HealthcareLocationsContent from '../components/dashboard/patient/HealthcareLocationsContent';
 import UserManagement from '../components/UserManagement';
 
 /**
@@ -140,6 +142,12 @@ const Dashboard = () => {
             label: 'Analytics',
             id: 'analytics',
             onClick: () => setActiveView('analytics')
+          },
+          {
+            icon: FiMapPin,
+            label: 'Healthcare Locations',
+            id: 'locations',
+            onClick: () => setActiveView('locations')
           }
         ];
       case 'admin':
@@ -215,6 +223,8 @@ const Dashboard = () => {
             return <PatientPrescriptionsContent />;
           case 'analytics':
             return <PatientAnalyticsContent />;
+          case 'locations':
+            return <HealthcareLocationsContent />;
           default:
             return <PatientDashboardContent />;
         }

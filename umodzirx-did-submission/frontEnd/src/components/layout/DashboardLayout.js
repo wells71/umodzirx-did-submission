@@ -12,22 +12,7 @@ import {
 import useDarkMode from '../../hooks/useDarkMode';
 import useAuth from '../../hooks/useAuth';
 import DebugRoleInfo from '../DebugRoleInfo';
-import HealthcareLocationsBar from '../common/HealthcareLocationsBar';
 
-/**
- * DashboardLayout - A reusable layout component for all dashboard pages
- * 
- * @param {Object} props
- * @param {React.ReactNode} props.children - Content to render in the main area
- * @param {Array} props.navItems - Navigation items for the sidebar
- * @param {string} props.title - Dashboard title
- * @param {Object} props.userInfo - User information (name, id, role, etc.)
- * @param {string} props.userInfo.name - User's name
- * @param {string} props.userInfo.id - User's ID
- * @param {string} props.userInfo.role - User's role (patient, doctor, pharmacist, etc.)
- * @param {boolean} props.hideMenu - Whether to hide the menu
- * @param {string} props.initialActiveView - Initial active view
- */
 const DashboardLayout = ({ 
   children, 
   navItems, 
@@ -282,9 +267,6 @@ const DashboardLayout = ({
       </div>
 
       {renderSettingsModal()}
-      
-      {/* Healthcare Locations Bar - only visible for patients */}
-      {userInfo && userInfo.role === 'patient' && <HealthcareLocationsBar />}
       
       {/* Debug component - only visible in development */}
       {process.env.NODE_ENV !== 'production' && <DebugRoleInfo />}
