@@ -62,11 +62,7 @@ const PrescriptionButton = ({ activeView }) => {
   const [showModal, setShowModal] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [showMedicationModal, setShowMedicationModal] = useState(false);
-  const [verifiedPatient, setVerifiedPatient] = useState(null);
-
-  const [patientProfile, setPatientProfile] = useState(null);
-  const [loadingProfile, setLoadingProfile] = useState(false);
-  const [prescriptionForm, setPrescriptionForm] = useState({
+  const [verifiedPatient, setVerifiedPatient] = useState(null);  const [prescriptionForm, setPrescriptionForm] = useState({
     diagnosis: '',
     medications: [{ name: '', dosage: '', frequency: '' }]
   });
@@ -188,33 +184,7 @@ const PrescriptionButton = ({ activeView }) => {
   // Function to clear patient verification
   const clearPatientVerification = () => {
     setVerifiedPatient(null);
-    setPatientProfile(null);
-    setPatientProfile(null);
   };
-  
-  // Function to fetch patient profile
-  const fetchPatientProfile = async (patientId) => {
-    if (!patientId) return;
-    
-    try {
-      setLoadingProfile(true);
-      const response = await axios.get(`http://localhost:5000/patient/profile?patientId=${patientId}`);
-      
-      if (response.data && response.data.success) {
-        console.log('Patient profile loaded:', response.data.data);
-        setPatientProfile(response.data.data);
-      }
-    } catch (err) {
-      console.error('Error fetching patient profile:', err);
-      // If 404, it means profile doesn't exist yet, which is okay
-      if (err.response && err.response.status !== 404) {
-        setError('Failed to load patient profile data');
-      }
-    } finally {
-      setLoadingProfile(false);
-    }
-  };
-  
   const handleSubmitPrescription = async (e) => {
     e?.preventDefault();    // Validate form data
     if (!prescriptionForm.diagnosis || prescriptionForm.medications.some(med => !med.name || !med.dosage || !med.frequency)) {
@@ -692,7 +662,7 @@ const PrescriptionButton = ({ activeView }) => {
           <div ref={modalRef} className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-[800px] max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
             <div className="border-b border-gray-200 dark:border-gray-700 px-8 py-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Issue New Prescription</h3>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Create New Prescription</h3>
                 <button 
                   onClick={() => setShowModal(false)}
                   className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
@@ -742,6 +712,19 @@ const PrescriptionButton = ({ activeView }) => {
                     </p>
                   </div>
                 </div>
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearPatientVerification();
+                      setShowModal(false);
+                      setShowVerificationModal(true);
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center"
+                  >
+                    <span>Verify Different Patient</span>
+                  </button>
+                </div>
               </div>
               
               {/* Diagnosis Field */}
@@ -768,28 +751,45 @@ const PrescriptionButton = ({ activeView }) => {
                     <div 
                       key={index} 
                       className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 shadow-sm hover:border-gray-300 dark:hover:border-gray-500 transition-colors relative"
-                    >                      
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Medication
-                          </label>
-                          <div className="relative">
+                    >                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Medication
+                          </label>                          <div className="relative">
                             <input
-                            type="text"
-                            value={med.name}
-                            onChange={(e) => handleMedicationChange(index, 'name', e.target.value)}
-                            onClick={() => openMedicationSelector(index)}
-                            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-300 transition-shadow cursor-pointer"
-                            placeholder="Select medication"
-                            readOnly
-                            required
+                              type="text"
+                              value={med.name}
+                              onChange={(e) => handleMedicationChange(index, 'name', e.target.value)}
+                              onClick={() => openMedicationSelector(index)}
+                              className={`block w-full px-3 py-2 border ${
+                                isMedicationSelectedElsewhere(med.name, index)
+                                  ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-500'
+                                  : 'border-gray-300 dark:border-gray-600'
+                              } rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-300 transition-shadow cursor-pointer`}
+                              placeholder="Select medication"
+                              readOnly
+                              required
                             />
                             <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                               <FiChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                             </div>
+                            {/* Warning indicator for duplicate medications */}
+                            {isMedicationSelectedElsewhere(med.name, index) && (
+                              <div className="absolute -top-2 -right-2">
+                                <div className="w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center">
+                                  <span className="text-white text-xs font-bold">!</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                      </div>
+                          {/* Duplicate medication warning */}
+                          {isMedicationSelectedElsewhere(med.name, index) && (
+                            <p className="mt-1 text-xs text-yellow-600 dark:text-yellow-400 flex items-center">
+                              <span className="mr-1">⚠️</span>
+                              This medication is already selected in another field
+                            </p>
+                          )}
+                        </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Dosage
@@ -853,14 +853,14 @@ const PrescriptionButton = ({ activeView }) => {
                   onClick={handleClearForm}
                   className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all"
                 >
-                  Clear form
+                  Clear
                 </button>
                 <button
                   type="button"
                   onClick={handleSubmitPrescription}
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all"
                 >
-                  Issue Prescription
+                  Create Prescription
                 </button>
               </div>
               {error && (

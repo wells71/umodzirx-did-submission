@@ -9,4 +9,8 @@ router.get('/prescriptions', PatientController.getPrescriptions);
 // Patient prescription history
 router.get('/prescriptions/history/:patientId', PatientController.getPrescriptionHistory);
 
+// Patient profile routes
+router.get('/profile', PatientController.getPatientProfile);
+router.post('/profile', PatientController.updatePatientProfile);
+
 module.exports = router;

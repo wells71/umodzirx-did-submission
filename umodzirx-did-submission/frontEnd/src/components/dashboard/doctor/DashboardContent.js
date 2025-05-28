@@ -153,7 +153,7 @@ const DashboardContent = ({ onCreatePrescription }) => {
     {
       id: 'top-medications',
       icon: <FiPackage />,
-      title: 'Top Medication',
+      title: 'Top Prescribed Medication',
       value: calculateMetrics.topMedication.name,
       increase: calculateMetrics.topMedication.count.toString(),
       subtitle: `Prescribed ${calculateMetrics.topMedication.count} times`,
@@ -176,7 +176,7 @@ const DashboardContent = ({ onCreatePrescription }) => {
       title: 'Active Prescriptions',
       value: calculateMetrics.activePrescriptions.toString(),
       increase: Math.round(calculateMetrics.activePrescriptions * 0.1).toString(), // Example increase (10% of active)
-      subtitle: 'In circulation now',
+      subtitle: 'Currently active prescriptions',
       iconColor: 'text-green-600 dark:text-green-400',
       bgColor: 'bg-green-50 dark:bg-green-900/20'
     },
