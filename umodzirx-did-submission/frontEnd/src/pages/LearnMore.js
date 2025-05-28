@@ -90,12 +90,12 @@ export default function LearnMore() {
         <section className="relative bg-gradient-to-r from-blue-50 to-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
             <div className="text-center">
-              <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 mb-4">
+              {/* <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 mb-4">
                 <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 HIPAA Compliant
-              </div>
+              </div> */}
               <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
                 <span className="block text-blue-600">UmodziRx Features</span>
                 <span className="block">Blockchain Digital ID Prescription System</span>

@@ -27,7 +27,7 @@ const HealthcareLocationsContent = () => {
         setIsLoading(true);
         setError(null);
         
-        // Get user's location (in a real app, you would use the browser's geolocation API)
+        // Get user's location (in a real implementation, use the browser's geolocation API)
         // For now, we'll use default options
         const locationOptions = {
           // latitude: userPosition.latitude,
